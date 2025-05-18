@@ -17,11 +17,15 @@ exploration and exploitation.
 
 
 ## Train
-requirements:
-```text
-verl==0.2.0
-vllm==0.8.0
+
+Install VeRL. We modified parts of the code, 
+specifically those related to the scoring function.
+
+```shell
+cd ./verl
+pip install -e .
 ```
+
 
 train
 ```shell

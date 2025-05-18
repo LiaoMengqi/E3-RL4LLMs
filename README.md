@@ -16,7 +16,7 @@ training.  An annealing mechanism is further integrated to effectively balance
 exploration and exploitation.
 
 
-## Quik Start
+## Quick Start
 
 Install VeRL. We modified parts of the code, 
 specifically those related to the scoring function.

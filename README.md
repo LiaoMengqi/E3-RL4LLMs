@@ -16,7 +16,7 @@ training.  An annealing mechanism is further integrated to effectively balance
 exploration and exploitation.
 
 
-## Train
+## Quik Start
 
 Install VeRL. We modified parts of the code, 
 specifically those related to the scoring function.
@@ -27,8 +27,23 @@ pip install -e .
 ```
 
 
-train
+Train
 ```shell
 bash ./scripts/train.sh
 ```
 
+Inference
+```shell
+bash ./scripts/infer.sh
+```
+
+Evaluation (Accuracy)
+
+```shell
+python ./e3/main_eval.py
+```
+
+Metrics (pass@k)
+```shell
+python ./e3/main_metric.py
+```

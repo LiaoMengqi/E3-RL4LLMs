@@ -204,8 +204,8 @@ def compute_grpo_outcome_advantage(
     eos_mask: torch.Tensor,
     index: torch.Tensor,
     epsilon: float = 1e-6,
-    # length_per_prompt: Optional[torch.Tensor] = None,
-    # length_penalty_coeff: Optional[float] = 0,
+    length_per_prompt: Optional[torch.Tensor] = None,
+    length_penalty_coeff: Optional[float] = 0,
 ):
     """
     Compute advantage for GRPO, operating only on Outcome reward
@@ -223,8 +223,8 @@ def compute_grpo_outcome_advantage(
             shape: (bs, response_length)
     """
 
-    # def get_panenty(length: torch.Tensor) -> torch.Tensor:
-    #     return length * length_penalty_coeff / (length * length_penalty_coeff + 1)
+    def get_panenty(length: torch.Tensor) -> torch.Tensor:
+        return length * length_penalty_coeff / (length * length_penalty_coeff + 1)
 
     response_length = token_level_rewards.shape[-1]
     scores = token_level_rewards.sum(dim=-1)
@@ -233,11 +233,13 @@ def compute_grpo_outcome_advantage(
     id2mean = {}
     id2std = {}
     id2length = defaultdict(list)
+
+    all_error_count = 0
     with torch.no_grad():
         bsz = scores.shape[0]
         for i in range(bsz):
             id2score[index[i]].append(scores[i])
-            # id2length[index[i]].append(length_per_prompt[i])
+            id2length[index[i]].append(length_per_prompt[i])
 
         for idx in id2score:
             if len(id2score[idx]) == 1:
@@ -245,12 +247,12 @@ def compute_grpo_outcome_advantage(
                 id2std[idx] = torch.tensor(1.0)
             elif len(id2score[idx]) > 1:
                 ts = torch.tensor(id2score[idx])
-                # if torch.all(ts > 0) and length_penalty_coeff > 0:
-                #     # only when all rollout is valid, we apply the length penalty
-                #     assert length_penalty_coeff < 1
-                #     length = torch.tensor(id2length[idx])
-                #     penalty = get_panenty(length)
-                #     ts = ts - penalty
+                if torch.all(ts == 0):
+                    all_error_count += 1
+                if torch.all(ts > 1):
+                    if length_penalty_coeff > 0:
+                        panenty = get_panenty(torch.tensor(id2length[idx]))
+                        ts = ts - panenty
 
                 id2mean[idx] = torch.mean(ts)
                 id2std[idx] = torch.std(ts)
@@ -260,7 +262,7 @@ def compute_grpo_outcome_advantage(
             scores[i] = (scores[i] - id2mean[index[i]]) / (id2std[index[i]] + epsilon)
         scores = scores.unsqueeze(-1).tile([1, response_length]) * eos_mask
 
-    return scores, scores
+    return scores, scores, all_error_count
 
 
 def compute_advantage(
@@ -268,9 +270,10 @@ def compute_advantage(
     adv_estimator,
     gamma=1.0,
     lam=1.0,
-    # length_penalty_coeff: Optional[float] = 0,
+    length_penalty_coeff: Optional[float] = 0,
 ):
     # Back-compatible with trainers that do not compute response mask in fit
+    all_error_count = 0
     if "response_mask" not in data.batch.keys():
         data.batch["response_mask"] = compute_response_mask(data)
     # prepare response group
@@ -287,13 +290,13 @@ def compute_advantage(
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
     elif adv_estimator == AdvantageEstimator.GRPO:
-        # data = get_length(data)
-        advantages, returns = compute_grpo_outcome_advantage(
+        data = get_length(data)
+        advantages, returns, all_error_count = compute_grpo_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
             eos_mask=data.batch["response_mask"],
             index=data.non_tensor_batch["uid"],
-            # length_per_prompt=data.batch["response_length_per_prompt"],
-            # length_penalty_coeff=length_penalty_coeff,
+            length_per_prompt=data.batch["response_length_per_prompt"],
+            length_penalty_coeff=length_penalty_coeff,
         )
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
@@ -324,7 +327,7 @@ def compute_advantage(
         data.batch["returns"] = returns
     else:
         raise NotImplementedError
-    return data
+    return data, all_error_count
 
 
 @contextmanager
@@ -350,9 +353,9 @@ def get_length(data: DataProto):
     return data
 
 
-def apply_length_penalty(data: DataProto, 
-                         penalty_coeff: float = 1e-3,
-                         penalty_threshold: float = 0.2):
+def apply_length_penalty(
+    data: DataProto, penalty_coeff: float = 1e-3, penalty_threshold: float = 0.2
+):
     def get_panenty(length: torch.Tensor) -> torch.Tensor:
         return length * penalty_coeff / (length * penalty_coeff + 1)
 
@@ -368,19 +371,19 @@ def apply_length_penalty(data: DataProto,
     response_mask = attention_mask[:, -response_length:]
     response_length_per_prompt = response_mask.sum(dim=-1)
     length_penalty = get_panenty(response_length_per_prompt)
-    
 
     # length_penalty = (1 - rank) * length_penalty  # (bsz,)
     zero_mask = rank > penalty_threshold
     length_penalty[zero_mask] = 0
-    
 
     length_penalty = length_penalty.unsqueeze(-1).tile(
         [1, token_level_scores.shape[1]]
     )  # (bsz,response_length)
 
     score_mask = token_level_scores != 0
-    token_level_rewards[score_mask] = token_level_scores[score_mask] - length_penalty[score_mask]
+    token_level_rewards[score_mask] = (
+        token_level_scores[score_mask] - length_penalty[score_mask]
+    )
     data.batch["token_level_rewards"] = token_level_rewards
     return data
 
@@ -398,21 +401,26 @@ def get_rollout_n_per_prompt(
 
     rollout_counts = np.full_like(rank, rollout_n_min)
     mask = rank == -100
-    rank = rank.copy()  
+    rank = rank.copy()  # 创建副本避免修改原始数据
     rank[mask] = 0
 
+    # 归一化rank
     rank_sum = rank.sum()
-    if rank_sum > 0:  
+    if rank_sum > 0:  # 避免除以零
         rank = rank / (rank_sum + 1e-8)
 
+    # 计算额外的rollout分配
     extra_counts = (total_rollout_n - rollout_counts.sum()) * rank
     rollout_counts = rollout_counts + extra_counts
 
+    # numpy数组转整数
     rollout_counts = np.floor(rollout_counts).astype(np.int64)
 
+    # 处理舍入误差，确保总和等于total_rollout_n
     diff = total_rollout_n - rollout_counts.sum()
     if diff > 0:
-        sorted_indices = np.argsort(-rank)  
+        # 按rank降序排列索引
+        sorted_indices = np.argsort(-rank)  # 降序排列
         for i in sorted_indices:
             if diff > 0:
                 if rollout_counts[i] < rollout_n_max:
@@ -890,6 +898,7 @@ class RayPPOTrainer(object):
         for data_source, rewards in data_source_reward.items():
             metric_dict[f"val/test_score/{data_source}"] = np.mean(rewards)
 
+        # ============= 长度日志 =============
         for data_source in length_per_source:
             avg_length = sum(length_per_source[data_source]) / len(
                 length_per_source[data_source]
@@ -897,6 +906,7 @@ class RayPPOTrainer(object):
             if isinstance(avg_length, torch.Tensor):
                 avg_length = avg_length.item()
             metric_dict[f"val/test_length/{data_source}"] = avg_length
+        # ============= 长度日志 =============
 
         return metric_dict
 
@@ -1329,21 +1339,25 @@ class RayPPOTrainer(object):
                             batch.batch["token_level_rewards"] = batch.batch[
                                 "token_level_scores"
                             ]
-                        if self.config.algorithm.penalty_coeff > 0:
+                        if (
+                            self.config.algorithm.penalty_coeff > 0
+                            and self.config.algorithm.penalty_threshold > 0
+                        ):
                             assert self.config.algorithm.penalty_coeff < 1
+                            # penalty all correct rollout where rank < penalty_threshold
                             batch = apply_length_penalty(
-                                batch, 
+                                batch,
                                 penalty_coeff=self.config.algorithm.penalty_coeff,
-                                penalty_threshold=self.config.algorithm.penalty_threshold
+                                penalty_threshold=self.config.algorithm.penalty_threshold,
                             )
 
                         # compute advantages, executed on the driver process
-                        batch = compute_advantage(
+                        batch, all_error_count = compute_advantage(
                             batch,
                             adv_estimator=self.config.algorithm.adv_estimator,
                             gamma=self.config.algorithm.gamma,
                             lam=self.config.algorithm.lam,
-                            # length_penalty_coeff=self.config.algorithm.penalty_coeff,
+                            length_penalty_coeff=self.config.algorithm.penalty_coeff if self.config.algorithm.penalty_threshold == 0 else 0,
                         )
 
                     # update critic
@@ -1406,6 +1420,7 @@ class RayPPOTrainer(object):
 
                 rank = [i for i in batch.non_tensor_batch["rank"]]
                 metrics.update({"actor/rank": sum(rank) / len(rank)})
+                metrics.update({"actor/all_error_count": all_error_count})
                 logger.log(data=metrics, step=self.global_steps)
 
                 if is_last_step:

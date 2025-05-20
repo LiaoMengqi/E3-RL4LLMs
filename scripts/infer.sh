@@ -2,7 +2,7 @@ TEST_DATADIR=./dataset/test.json
 MODELDIR=..checkpoint/grpo_1_5b/global_step_480/actor/huggingface
 OUTPUT_FILE=./.results/dapo_7b_s16_1.json
 
-python3 -m adre.main_generate \
+python3 -m e3.main_generate \
     --model=$MODELDIR \
     --input_file=$TEST_DATADIR \
     --output_file=$OUTPUT_FILE \

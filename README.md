@@ -24,6 +24,22 @@ a stable policy entropy level, thereby enabling more extensive exploration durin
 training.  An annealing mechanism is further integrated to effectively balance 
 exploration and exploitation.
 
+## Results
+![](./fig/entropy.jpeg)
+
+As illustrated in the figure, the yellow curve represents the change in entropy during training when employing temperature scheduling, the blue curve corresponds to the use of GRPO alone, the green curve reflects the application of the entropy augmentation rule, and the pink curve indicates the combination with annealing. Our temperature scheduling method effectively maintains the entropy of the policy at a stable level throughout the training process.
+
+![](./fig/acc_temp.jpeg)
+
+The variation of accuracy on the validation set and the corresponding changes in temperature during the training process.
+
+![](./fig/pass-at_k.jpeg)
+
+Pass@k on AIME24 and AMC23.
+
+![](./fig/rollout.jpeg)
+
+The default rollout is set to 8, and the curves in the figure represent the proportion of completely incorrect cases. When employing dynamic rollout budget allocation, with the maximum rollout increased by 4, the proportion of completely incorrect cases is reduced by approximately 2%.
 
 ## Quick Start
 

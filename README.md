@@ -1,4 +1,13 @@
 # E3-RL4LLMs
+[paper](https://arxiv.org/abs/2505.18573)
+```
+@article{liao2025enhancing,
+  title={Enhancing Efficiency and Exploration in Reinforcement Learning for LLMs},
+  author={Liao, Mengqi and Xi, Xiangyu and Chen, Ruinian and Leng, Jia and Hu, Yangen and Zeng, Ke and Liu, Shuai and Wan, Huaiyu},
+  journal={arXiv preprint arXiv:2505.18573},
+  year={2025}
+}
+```
 
 ## Introduction
 We enhance the training efficiency of RL by introducing a dynamic rollout 

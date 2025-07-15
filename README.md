@@ -37,7 +37,7 @@ The variation of accuracy on the validation set and the corresponding changes in
 
 Pass@k on AIME24 and AMC23.
 <p align="center">
-  <img src="./fig/rollout.jpeg" width="50%"/>
+  <img src="./fig/rollout.jpeg" width="70%"/>
 </p>
 
 

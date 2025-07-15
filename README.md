@@ -36,8 +36,10 @@ The variation of accuracy on the validation set and the corresponding changes in
 ![](./fig/pass-at_k.jpeg)
 
 Pass@k on AIME24 and AMC23.
+<p align="center">
+  <img src="./fig/rollout.jpeg" width="50%"/>
+</p>
 
-![](./fig/rollout.jpeg)
 
 The default rollout is set to 8, and the curves in the figure represent the proportion of completely incorrect cases. When employing dynamic rollout budget allocation, with the maximum rollout increased by 4, the proportion of completely incorrect cases is reduced by approximately 2%.
 

@@ -1,4 +1,8 @@
 # E3-RL4LLMs
+## News
+- [25/08/20] : Aceept as EMNLP 2025 Main Conference paper
+
+  
 [paper](https://arxiv.org/abs/2505.18573)
 ```
 @article{liao2025enhancing,

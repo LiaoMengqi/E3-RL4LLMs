@@ -103,10 +103,7 @@ class TaskRunner:
             ray_worker_group_cls = RayWorkerGroup
 
         elif config.actor_rollout_ref.actor.strategy == 'megatron':
-            assert config.actor_rollout_ref.actor.strategy == config.critic.strategy
-            from verl.workers.megatron_workers import ActorRolloutRefWorker, CriticWorker
-            from verl.single_controller.ray.megatron import NVMegatronRayWorkerGroup
-            ray_worker_group_cls = NVMegatronRayWorkerGroup
+            raise NotImplementedError
 
         else:
             raise NotImplementedError

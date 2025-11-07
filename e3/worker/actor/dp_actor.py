@@ -403,7 +403,7 @@ class DataParallelPPOActor(BasePPOActor):
 
                         # compute policy loss
                         policy_loss = pg_loss - entropy_loss * entropy_coeff
-                        metrics["actor/entropy_loss"] = entropy_loss.detach().item()
+                        append_to_dict(metrics,{'actor/entropy_loss', entropy_loss.detach().item()})
                     else:
                         policy_loss = pg_loss
 

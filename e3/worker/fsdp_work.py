@@ -372,7 +372,7 @@ class ActorRolloutRefWorker(Worker):
 
     @register(dispatch_mode=Dispatch.ONE_TO_ALL)
     def init_model(self):
-        from verl.workers.actor import DataParallelPPOActor
+        from .actor.dp_actor import DataParallelPPOActor
         # This is used to import external_lib into the huggingface systems
         import_external_libs(self.config.model.get('external_lib', None))
 
@@ -484,7 +484,7 @@ class ActorRolloutRefWorker(Worker):
             output = self.ulysses_sharding_manager.postprocess_data(data=output)
             output = output.to('cpu')
             
-            self.temperature_scheduler.step(metrics['actor/entropy_loss'])
+            self.temperature_scheduler.step(metrics.get('actor/entropy_loss', None))
 
 
         if self._is_offload_param:

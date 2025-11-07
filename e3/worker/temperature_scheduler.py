@@ -39,6 +39,8 @@ class TemperatureScheduler:
         self.factor = np.log(self.vocab_size) + np.log(np.log(self.vocab_size))
 
     def step(self, entropy: Union[float, List[float]]):
+        if entropy is None:
+            return
         if self.steps <= self.init_steps:
             if isinstance(entropy, float):
                 self.init_entropy.append(entropy)
